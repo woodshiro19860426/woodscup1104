@@ -1,0 +1,1026 @@
+禎郎<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ゴルフコンペ 7人順位ピッタリ予想ゲーム</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;600;800&family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        golf: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                            gold: '#f59e0b',
+                            sand: '#fef3c7'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Noto Sans JP"', '"M PLUS Rounded 1c"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f4f7f5;
+            background-image: radial-gradient(#d1fae5 0.75px, transparent 0.75px), radial-gradient(#d1fae5 0.75px, #f4f7f5 0.75px);
+            background-size: 30px 30px;
+            background-position: 0 0, 15px 15px;
+        }
+        .dragging {
+            opacity: 0.5;
+            scale: 1.02;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+        }
+        .no-select {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen pb-12 font-sans">
+
+    <!-- ヘッダー -->
+    <header class="bg-gradient-to-r from-golf-900 via-golf-800 to-golf-900 text-white shadow-lg border-b-4 border-golf-gold sticky top-0 z-30">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-2">
+        <!-- 通信ステータス -->
+        <div class="flex items-center space-x-1.5 bg-golf-800/80 px-2.5 py-1 rounded-full text-xs font-medium border border-golf-700/60" title="リアルタイム同期状態">
+            <span id="sync-dot" class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+            <span id="sync-status" class="text-golf-100 text-[11px]">接続中...</span>
+        </div>
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold tracking-wide">ゴルフコンペ 7人順位予想</h1>
+                    <p class="text-xs text-golf-100 opacity-90">1位から7位まで順位を全部当てろ！</p>
+                </div>
+            </div>
+            <!-- ナビゲーションタブ -->
+            <div class="flex bg-golf-900/60 p-1 rounded-xl text-xs sm:text-sm font-semibold border border-golf-700/50">
+                <button onclick="switchTab('vote')" id="tab-vote" class="px-3 py-1.5 rounded-lg bg-white text-golf-900 shadow transition-all">
+                    <i class="fa-solid fa-check-to-slot mr-1"></i>予想投票
+                </button>
+                <button onclick="switchTab('votes-list')" id="tab-votes-list" class="px-3 py-1.5 rounded-lg text-golf-100 hover:text-white transition-all">
+                    <i class="fa-solid fa-list-ol mr-1"></i>投票一覧
+                </button>
+                <button onclick="switchTab('admin')" id="tab-admin" class="px-3 py-1.5 rounded-lg text-golf-100 hover:text-white transition-all">
+                    <i class="fa-solid fa-trophy mr-1"></i>結果・幹事
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-3xl mx-auto px-4 pt-6">
+
+        <!-- Banner / Notification Alert -->
+        <div id="status-message" class="hidden mb-4 p-4 rounded-xl text-sm font-medium flex items-center justify-between shadow-sm">
+            <span id="status-text"></span>
+            <button onclick="hideStatus()" class="ml-2 text-lg">&times;</button>
+        </div>
+
+        <!-- TAB 1: 投票画面 (VOTE TAB) -->
+        <section id="sec-vote" class="space-y-6">
+            <!-- 設定カード (選手名の編集) -->
+            <div class="bg-white rounded-2xl shadow-md p-4 sm:p-6 border border-gray-100">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-base sm:text-lg font-bold text-golf-900 flex items-center">
+                        <i class="fa-solid fa-users text-golf-700 mr-2"></i>参加選手（対象7名）
+                    </h2>
+                    <button onclick="togglePlayerEdit()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-medium transition">
+                        <i class="fa-solid fa-pen-to-square mr-1"></i><span id="edit-players-btn-text">選手名を編集</span>
+                    </button>
+                </div>
+
+                <!-- 編集フォーム (初期非表示) -->
+                <div id="player-edit-box" class="hidden mb-4 p-4 bg-golf-50 rounded-xl border border-golf-100 space-y-3">
+                    <p class="text-xs text-gray-600">※コンペ参加者7名の名前を設定してください（他の方の予想にも反映されます）</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="player-inputs-container">
+                        <!-- JSで動的生成 -->
+                    </div>
+                    <div class="text-right pt-2">
+                        <button onclick="savePlayerNames()" class="bg-golf-700 hover:bg-golf-800 text-white text-xs px-4 py-2 rounded-lg font-bold transition">
+                            <i class="fa-solid fa-floppy-disk mr-1"></i>選手名を保存
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 選手一覧表示タグ -->
+                <div class="flex flex-wrap gap-2" id="players-badge-container">
+                    <!-- JSで動的生成 -->
+                </div>
+            </div>
+
+            <!-- 順位並び替えエリア -->
+            <div class="bg-white rounded-2xl shadow-md p-4 sm:p-6 border border-gray-100">
+                <div class="mb-4">
+                    <h2 class="text-lg font-bold text-golf-900 flex items-center">
+                        <i class="fa-solid fa-arrow-down-short-wide text-golf-700 mr-2"></i>予想順位の並び替え
+                    </h2>
+                    <p class="text-xs text-gray-500 mt-1">
+                        ドラッグ＆ドロップ、または右側の <i class="fa-solid fa-arrow-up text-golf-700"></i><i class="fa-solid fa-arrow-down text-golf-700"></i> ボタンで1位〜7位の順番に並び替えてください。
+                    </p>
+                </div>
+
+                <!-- ドラッグ＆ドロップリスト -->
+                <ul id="draggable-list" class="space-y-2.5 no-select">
+                    <!-- JSで動的生成 -->
+                </ul>
+
+                <!-- 投票者情報＆送信ボタン -->
+                <div class="mt-8 pt-6 border-t border-gray-100 space-y-4">
+                    <div>
+                        <label for="voter-name" class="block text-sm font-bold text-gray-700 mb-1">
+                            あなたの名前（投票名） <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" id="voter-name" placeholder="例：山田太郎" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-golf-500 focus:border-transparent text-sm">
+                    </div>
+
+                    <button onclick="submitPrediction()" class="w-full bg-gradient-to-r from-golf-700 to-golf-800 hover:from-golf-800 hover:to-golf-900 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-base sm:text-lg flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>この予想で投票を送信する</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: 投票一覧画面 (VOTES LIST TAB) -->
+        <section id="sec-votes-list" class="hidden space-y-6">
+            <div class="bg-white rounded-2xl shadow-md p-4 sm:p-6 border border-gray-100">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-golf-900 flex items-center">
+                            <i class="fa-solid fa-list-check text-golf-700 mr-2"></i>登録済み予想一覧
+                        </h2>
+                        <p class="text-xs text-gray-500 mt-0.5">現在 <span id="vote-count-badge" class="font-bold text-golf-700">0</span> 件の投票が集まっています</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="exportVotesData()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-semibold transition flex items-center">
+                            <i class="fa-solid fa-download mr-1"></i>データ共有/出力
+                        </button>
+                    </div>
+                </div>
+
+                <div id="votes-cards-container" class="space-y-4">
+                    <!-- JSで予想カード群を挿入 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: 結果設定・リーダーボード (ADMIN TAB) -->
+        <section id="sec-admin" class="hidden space-y-6">
+            <!-- 結果入力エリア -->
+            <div class="bg-white rounded-2xl shadow-md p-4 sm:p-6 border border-gray-100">
+                <div class="mb-4">
+                    <span class="bg-golf-gold/20 text-golf-800 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">幹事・管理者用</span>
+                    <h2 class="text-lg font-bold text-golf-900 flex items-center mt-2">
+                        <i class="fa-solid fa-square-poll-vertical text-golf-700 mr-2"></i>コンペ確定結果の設定
+                    </h2>
+                    <p class="text-xs text-gray-500 mt-1">ゴルフコンペの実際の最終結果（1位〜7位）を選択して「結果確定」を押してください。</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="actual-results-inputs">
+                    <!-- JSで選択セレクトボックスを生成 -->
+                </div>
+
+                <div class="mt-4 flex justify-end gap-2">
+                    <button onclick="calculateResults()" class="w-full sm:w-auto bg-golf-700 hover:bg-golf-800 text-white font-bold px-6 py-3 rounded-xl shadow transition">
+                        <i class="fa-solid fa-calculator mr-2"></i>結果を確定して集計する
+                    </button>
+                </div>
+            </div>
+
+            <!-- 成績ランキング・リーダーボード -->
+            <div class="bg-white rounded-2xl shadow-md p-4 sm:p-6 border border-gray-100">
+                <h2 class="text-lg font-bold text-golf-900 flex items-center mb-4">
+                    <i class="fa-solid fa-trophy text-golf-gold mr-2 text-xl"></i>的中結果ランキング
+                </h2>
+
+                <div id="leaderboard-container">
+                    <div class="text-center py-8 text-gray-400 text-sm">
+                        <i class="fa-solid fa-chart-line text-4xl mb-2 block opacity-40"></i>
+                        上のフォームから確定結果を設定すると、最も的中数の多い勝者がここに表示されます！
+                    </div>
+                </div>
+            </div>
+
+            <!-- データ管理機能 -->
+            <div class="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-3">
+                <h3 class="text-xs font-bold text-gray-600 uppercase tracking-wider">データ管理</h3>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="clearAllVotes()" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-2 rounded-lg font-semibold transition">
+                        <i class="fa-solid fa-trash-can mr-1"></i>全投票データを消去
+                    </button>
+                    <button onclick="resetPlayersToDefault()" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg font-semibold transition">
+                        <i class="fa-solid fa-rotate-left mr-1"></i>選手名を初期化
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 投票完了確認 modal -->
+    <div id="modal-confirm" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl transform transition-all">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-golf-100 text-golf-700 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 mb-2">投票が完了しました！</h3>
+                <p class="text-xs text-gray-500 mb-4"><span id="confirm-voter-name" class="font-bold text-gray-800"></span> さんの予想を受け付けました。</p>
+            </div>
+
+            <div class="bg-golf-50 p-4 rounded-xl border border-golf-100 text-xs space-y-1.5 mb-6" id="confirm-ranks-preview">
+                <!-- JSでプレビュー表示 -->
+            </div>
+
+            <div class="space-y-2">
+                <button onclick="closeModalAndSwitchList()" class="w-full bg-golf-700 hover:bg-golf-800 text-white font-bold py-3 rounded-xl transition">
+                    投票一覧を見る
+                </button>
+                <button onclick="closeModal()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-xs transition">
+                    続けて別の投票を行う
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- データ書き出し modal -->
+    <div id="modal-export" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900"><i class="fa-solid fa-share-nodes text-golf-700 mr-2"></i>データ出力・共有</h3>
+                <button onclick="closeExportModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <p class="text-xs text-gray-600 mb-3">現在の予想投票データをテキストでクリップボードにコピーできます。</p>
+            <textarea id="export-textarea" readonly class="w-full h-40 p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono focus:outline-none mb-4"></textarea>
+            <div class="flex justify-end gap-2">
+                <button onclick="copyExportText()" class="bg-golf-700 hover:bg-golf-800 text-white font-bold px-4 py-2 rounded-lg text-xs transition">
+                    <i class="fa-solid fa-copy mr-1"></i>テキストをコピー
+                </button>
+                <button onclick="closeExportModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-4 py-2 rounded-lg text-xs transition">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // デフォルト選手データ
+        const DEFAULT_PLAYERS = ["西本武", "永井喜代治", "森修一", "真鍋貴裕", "永井美紀", "河野禎郎", "大川広己"];
+
+        // アプリケーション状態
+        let players = [];
+        let currentOrder = [];
+        let votes = [];
+        let actualResults = Array(7).fill("");
+        let isAdmin = false;
+        let adminPassword = "admin123";
+
+        // パブリック リアルタイム通信エンジン (PubSub API)
+        const ROOM_ID = 'golf_comp_room_2026_v7'; // 部屋識別キー
+        const API_BASE = `https://ntfy.sh/${ROOM_ID}`;
+        let lastSyncTime = 0;
+
+        // 初期化
+        window.onload = function() {
+            loadLocalStorage();
+            renderPlayerBadges();
+            renderPlayerInputs();
+            renderDraggableList();
+            renderVotesList();
+            renderActualResultInputs();
+            updateAdminUI();
+
+            // リアルタイム通信の開始
+            initRealtimeSync();
+        };
+
+        /* ---------------------------------------------------
+           リアルタイム自動同期エンジン (ntfy.sh PubSub)
+        --------------------------------------------------- */
+        function initRealtimeSync() {
+            updateSyncStatus('connecting', 'リアルタイム接続中...');
+
+            // SSE (Server-Sent Events) でリアルタイム受信
+            try {
+                const eventSource = new EventSource(`${API_BASE}/sse`);
+
+                eventSource.onopen = () => {
+                    updateSyncStatus('online', 'リアルタイム接続完了');
+                    // 接続時に自身の最新データをブロードキャストして共有
+                    broadcastData('SYNC_REQUEST');
+                };
+
+                eventSource.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        if (!message.message) return;
+                        
+                        const data = JSON.parse(message.message);
+                        handleIncomingData(data);
+                    } catch (e) {
+                        // 無視（フォーマットエラー等）
+                    }
+                };
+
+                eventSource.onerror = () => {
+                    updateSyncStatus('offline', '再接続中...');
+                };
+            } catch (err) {
+                updateSyncStatus('offline', 'オフライン動作中');
+            }
+
+            // ポーリングによる補助（SSE切断時のバックアップ）
+            setInterval(fetchLatestData, 5000);
+        }
+
+        function updateSyncStatus(state, text) {
+            const dot = document.getElementById('sync-dot');
+            const status = document.getElementById('sync-status');
+            status.innerText = text;
+
+            if (state === 'online') {
+                dot.className = "w-2 h-2 rounded-full bg-green-400";
+            } else if (state === 'connecting') {
+                dot.className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-red-400";
+            }
+        }
+
+        // データを他の端末へ配信
+        function broadcastData(type, payload = {}) {
+            const packet = {
+                type: type,
+                senderId: getDeviceId(),
+                timestamp: Date.now(),
+                players: players,
+                votes: votes,
+                actualResults: actualResults,
+                payload: payload
+            };
+
+            fetch(API_BASE, {
+                method: 'POST',
+                body: JSON.stringify(packet)
+            }).catch(err => console.error("Broadcast error:", err));
+        }
+
+        // 定期取得（バックアップ）
+        function fetchLatestData() {
+            fetch(`${API_BASE}/json?poll=1`)
+                .then(res => res.text())
+                .then(text => {
+                    const lines = text.trim().split('\n');
+                    lines.forEach(line => {
+                        try {
+                            const msg = JSON.parse(line);
+                            if (msg.message) {
+                                handleIncomingData(JSON.parse(msg.message));
+                            }
+                        } catch(e){}
+                    });
+                }).catch(() => {});
+        }
+
+        // 受信データの同期処理
+        function handleIncomingData(data) {
+            if (!data || data.senderId === getDeviceId()) return; // 自分の送信したデータはスキップ
+
+            let updated = false;
+
+            // 投票データのマージ（ID重複を除外して統合）
+            if (Array.isArray(data.votes)) {
+                const existingIds = new Set(votes.map(v => v.id));
+                data.votes.forEach(incomingVote => {
+                    if (!existingIds.has(incomingVote.id)) {
+                        votes.push(incomingVote);
+                        updated = true;
+                    }
+                });
+                // 最新順にソート
+                votes.sort((a,b) => b.id - a.id);
+            }
+
+            // 選手名の更新受信
+            if (data.type === 'UPDATE_PLAYERS' && Array.isArray(data.players)) {
+                players = [...data.players];
+                currentOrder = [...players];
+                renderPlayerBadges();
+                renderPlayerInputs();
+                renderDraggableList();
+                renderActualResultInputs();
+                updated = true;
+            }
+
+            // 確定結果の更新受信
+            if (data.type === 'UPDATE_ACTUAL' && Array.isArray(data.actualResults)) {
+                actualResults = [...data.actualResults];
+                renderActualResultInputs();
+                if (document.getElementById('sec-admin').classList.contains('hidden') === false) {
+                    renderLeaderboard();
+                }
+                updated = true;
+            }
+
+            // 削除通知の受信
+            if (data.type === 'DELETE_VOTE' && data.payload?.voteId) {
+                votes = votes.filter(v => v.id !== data.payload.voteId);
+                updated = true;
+            }
+
+            if (data.type === 'CLEAR_ALL_VOTES') {
+                votes = [];
+                updated = true;
+            }
+
+            // 同期リクエストに応答
+            if (data.type === 'SYNC_REQUEST') {
+                broadcastData('SYNC_RESPONSE');
+            }
+
+            if (updated) {
+                saveDataLocally();
+                renderVotesList();
+                renderLeaderboard();
+            }
+        }
+
+        function getDeviceId() {
+            let id = localStorage.getItem('golf_app_device_id');
+            if (!id) {
+                id = 'dev_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('golf_app_device_id', id);
+            }
+            return id;
+        }
+
+        /* ---------------------------------------------------
+           ローカルストレージデータ管理
+        --------------------------------------------------- */
+        function loadLocalStorage() {
+            const savedPlayers = localStorage.getItem('golf_app_players');
+            if (savedPlayers) {
+                players = JSON.parse(savedPlayers);
+            } else {
+                players = [...DEFAULT_PLAYERS];
+            }
+            currentOrder = [...players];
+
+            const savedVotes = localStorage.getItem('golf_app_votes');
+            if (savedVotes) {
+                votes = JSON.parse(savedVotes);
+            }
+
+            const savedActual = localStorage.getItem('golf_app_actual');
+            if (savedActual) {
+                actualResults = JSON.parse(savedActual);
+            }
+
+            const savedPass = localStorage.getItem('golf_app_admin_pass');
+            if (savedPass) {
+                adminPassword = savedPass;
+            }
+        }
+
+        function saveDataLocally() {
+            localStorage.setItem('golf_app_players', JSON.stringify(players));
+            localStorage.setItem('golf_app_votes', JSON.stringify(votes));
+            localStorage.setItem('golf_app_actual', JSON.stringify(actualResults));
+            localStorage.setItem('golf_app_admin_pass', adminPassword);
+        }
+
+        function saveData() {
+            saveDataLocally();
+            broadcastData('DATA_UPDATED');
+        }
+
+            const savedActual = localStorage.getItem('golf_app_actual');
+            if (savedActual) {
+                actualResults = JSON.parse(savedActual);
+            }
+        }
+
+        // 保存処理
+        function saveData() {
+            localStorage.setItem('golf_app_players', JSON.stringify(players));
+            localStorage.setItem('golf_app_votes', JSON.stringify(votes));
+            localStorage.setItem('golf_app_actual', JSON.stringify(actualResults));
+        }
+
+        // タブ切り替え
+        function switchTab(tabName) {
+            ['vote', 'votes-list', 'admin'].forEach(t => {
+                document.getElementById(`sec-${t}`).classList.add('hidden');
+                const btn = document.getElementById(`tab-${t}`);
+                btn.className = "px-3 py-1.5 rounded-lg text-golf-100 hover:text-white transition-all";
+            });
+
+            document.getElementById(`sec-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.className = "px-3 py-1.5 rounded-lg bg-white text-golf-900 shadow font-bold transition-all";
+
+            if (tabName === 'votes-list') {
+                renderVotesList();
+            } else if (tabName === 'admin') {
+                renderActualResultInputs();
+            }
+        }
+
+        // ステータスメッセージ表示
+        function showStatus(text, isError = false) {
+            const box = document.getElementById('status-message');
+            const textEl = document.getElementById('status-text');
+            box.className = `mb-4 p-4 rounded-xl text-sm font-medium flex items-center justify-between shadow-sm ${isError ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-golf-100 text-golf-800 border border-golf-200'}`;
+            textEl.innerText = text;
+            box.classList.remove('hidden');
+            setTimeout(() => { hideStatus(); }, 4000);
+        }
+
+        function hideStatus() {
+            document.getElementById('status-message').classList.add('hidden');
+        }
+
+        /* ---------------------------------------------------
+           選手管理関連 (PLAYERS MANAGEMENT)
+        --------------------------------------------------- */
+        function renderPlayerBadges() {
+            const container = document.getElementById('players-badge-container');
+            container.innerHTML = players.map((p, idx) => `
+                <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-golf-50 text-golf-800 border border-golf-200">
+                    <span class="w-4 h-4 rounded-full bg-golf-700 text-white flex items-center justify-center text-[10px] mr-1.5">${idx+1}</span>
+                    ${escapeHtml(p)}
+                </span>
+            `).join('');
+        }
+
+        function renderPlayerInputs() {
+            const container = document.getElementById('player-inputs-container');
+            container.innerHTML = players.map((p, idx) => `
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-bold text-gray-500 w-12">枠${idx+1}:</span>
+                    <input type="text" id="player-input-${idx}" value="${escapeHtml(p)}" class="flex-1 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-golf-500 focus:outline-none">
+                </div>
+            `).join('');
+        }
+
+        function togglePlayerEdit() {
+            const box = document.getElementById('player-edit-box');
+            const btnText = document.getElementById('edit-players-btn-text');
+            if (box.classList.contains('hidden')) {
+                box.classList.remove('hidden');
+                btnText.innerText = "閉じる";
+            } else {
+                box.classList.add('hidden');
+                btnText.innerText = "選手名を編集";
+            }
+        }
+
+        function savePlayerNames() {
+            const newPlayers = [];
+            for (let i = 0; i < 7; i++) {
+                const val = document.getElementById(`player-input-${i}`).value.trim();
+                if (!val) {
+                    showStatus(`選手${i+1}の名前を入力してください。`, true);
+                    return;
+                }
+                newPlayers.push(val);
+            }
+
+            players = newPlayers;
+            currentOrder = [...players];
+            saveDataLocally();
+
+            renderPlayerBadges();
+            renderDraggableList();
+            togglePlayerEdit();
+            showStatus('選手名を更新しました。');
+
+            // リアルタイム放送
+            broadcastData('UPDATE_PLAYERS');
+        }
+
+        function resetPlayersToDefault() {
+            if (confirm("選手名を初期設定（選手A〜G）に戻しますか？")) {
+                players = [...DEFAULT_PLAYERS];
+                currentOrder = [...players];
+                saveData();
+                renderPlayerBadges();
+                renderPlayerInputs();
+                renderDraggableList();
+                showStatus('選手名を初期状態にリセットしました。');
+            }
+        }
+
+        /* ---------------------------------------------------
+           ドラッグ＆ドロップ並び替え (DRAGGABLE LIST)
+        --------------------------------------------------- */
+        function renderDraggableList() {
+            const ul = document.getElementById('draggable-list');
+            ul.innerHTML = '';
+
+            const rankBadges = [
+                'bg-amber-400 text-amber-950 border-amber-500 font-extrabold', // 1位 (金)
+                'bg-slate-300 text-slate-800 border-slate-400 font-bold',       // 2位 (銀)
+                'bg-amber-700 text-amber-100 border-amber-800 font-bold',       // 3位 (銅)
+                'bg-gray-100 text-gray-700 border-gray-300',
+                'bg-gray-100 text-gray-700 border-gray-300',
+                'bg-gray-100 text-gray-700 border-gray-300',
+                'bg-gray-100 text-gray-700 border-gray-300'
+            ];
+
+            currentOrder.forEach((playerName, index) => {
+                const li = document.createElement('li');
+                li.className = 'draggable-item flex items-center justify-between p-3.5 bg-white rounded-xl border border-gray-200 shadow-sm transition hover:border-golf-500 cursor-grab active:cursor-grabbing';
+                li.draggable = true;
+                li.dataset.index = index;
+
+                li.innerHTML = `
+                    <div class="flex items-center space-x-3 pointer-events-none">
+                        <span class="w-8 h-8 rounded-lg ${rankBadges[index]} border flex items-center justify-center text-sm shadow-sm">
+                            ${index + 1}
+                        </span>
+                        <span class="font-bold text-gray-800 text-sm sm:text-base">${escapeHtml(playerName)}</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <!-- モバイル用 上下移動ボタン -->
+                        <button type="button" onclick="moveOrder(${index}, -1)" class="p-2 text-gray-400 hover:text-golf-700 rounded-lg hover:bg-gray-100 text-xs transition ${index === 0 ? 'opacity-20 cursor-not-allowed' : ''}" ${index === 0 ? 'disabled' : ''}>
+                            <i class="fa-solid fa-arrow-up"></i>
+                        </button>
+                        <button type="button" onclick="moveOrder(${index}, 1)" class="p-2 text-gray-400 hover:text-golf-700 rounded-lg hover:bg-gray-100 text-xs transition ${index === currentOrder.length - 1 ? 'opacity-20 cursor-not-allowed' : ''}" ${index === currentOrder.length - 1 ? 'disabled' : ''}>
+                            <i class="fa-solid fa-arrow-down"></i>
+                        </button>
+                        <div class="pl-2 text-gray-300">
+                            <i class="fa-solid fa-grip-vertical text-base"></i>
+                        </div>
+                    </div>
+                `;
+
+                // ドラッグイベントの設定
+                addDragEvents(li);
+                ul.appendChild(li);
+            });
+        }
+
+        let dragStartIndex;
+
+        function addDragEvents(item) {
+            item.addEventListener('dragstart', (e) => {
+                dragStartIndex = +item.dataset.index;
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            item.addEventListener('drop', (e) => {
+                const dragEndIndex = +item.dataset.index;
+                swapItems(dragStartIndex, dragEndIndex);
+                item.classList.remove('dragging');
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+            });
+        }
+
+        function swapItems(fromIndex, toIndex) {
+            const itemToMove = currentOrder[fromIndex];
+            currentOrder.splice(fromIndex, 1);
+            currentOrder.splice(toIndex, 0, itemToMove);
+            renderDraggableList();
+        }
+
+        function moveOrder(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= currentOrder.length) return;
+            const temp = currentOrder[index];
+            currentOrder[index] = currentOrder[newIndex];
+            currentOrder[newIndex] = temp;
+            renderDraggableList();
+        }
+
+        /* ---------------------------------------------------
+           予想投票の送信 (SUBMIT PREDICTION)
+        --------------------------------------------------- */
+        function submitPrediction() {
+            const nameInput = document.getElementById('voter-name');
+            const voterName = nameInput.value.trim();
+
+            if (!voterName) {
+                showStatus('お名前を入力してください。', true);
+                nameInput.focus();
+                return;
+            }
+
+            const newVote = {
+                id: Date.now().toString(),
+                voterName: voterName,
+                prediction: [...currentOrder],
+                timestamp: new Date().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            };
+
+            votes.unshift(newVote);
+            saveDataLocally();
+
+            // 他端末へリアルタイム送信
+            broadcastData('NEW_VOTE', { vote: newVote });
+
+            // モーダル表示準備
+            document.getElementById('confirm-voter-name').innerText = voterName;
+            const previewEl = document.getElementById('confirm-ranks-preview');
+            previewEl.innerHTML = currentOrder.map((p, idx) => `
+                <div class="flex justify-between items-center py-0.5 border-b border-golf-100/50 last:border-0">
+                    <span class="font-bold text-golf-800">${idx + 1}位</span>
+                    <span class="font-semibold text-gray-800">${escapeHtml(p)}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('modal-confirm').classList.remove('hidden');
+            nameInput.value = '';
+        }
+
+        function closeModal() {
+            document.getElementById('modal-confirm').classList.add('hidden');
+        }
+
+        function closeModalAndSwitchList() {
+            closeModal();
+            switchTab('votes-list');
+        }
+
+        /* ---------------------------------------------------
+           投票一覧表示 (VOTES LIST)
+        --------------------------------------------------- */
+        function renderVotesList() {
+            const container = document.getElementById('votes-cards-container');
+            document.getElementById('vote-count-badge').innerText = votes.length;
+
+            if (votes.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                        <i class="fa-solid fa-inbox text-4xl mb-2"></i>
+                        <p class="text-sm">まだ予想投票が届いていません。</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = votes.map(vote => `
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-golf-300 transition shadow-sm">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-full bg-golf-700 text-white flex items-center justify-center font-bold text-xs">
+                                ${escapeHtml(vote.voterName.charAt(0))}
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-900 text-sm sm:text-base">${escapeHtml(vote.voterName)}</h3>
+                                <p class="text-[10px] text-gray-400">${vote.timestamp}</p>
+                            </div>
+                        </div>
+                        <button onclick="deleteVote('${vote.id}')" class="text-gray-400 hover:text-red-500 p-1 text-xs transition" title="削除">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+
+                    <!-- 1位〜7位横並びリスト -->
+                    <div class="grid grid-cols-7 gap-1 sm:gap-2 text-center text-xs">
+                        ${vote.prediction.map((p, idx) => `
+                            <div class="bg-white p-1.5 rounded-lg border border-gray-200 flex flex-col items-center justify-between">
+                                <span class="text-[10px] font-bold text-gray-400 mb-0.5">${idx+1}位</span>
+                                <span class="font-semibold text-gray-800 text-[11px] sm:text-xs truncate w-full" title="${escapeHtml(p)}">${escapeHtml(p)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteVote(id) {
+            if (!isAdmin) {
+                showStatus('削除権限がありません。管理者モードでログインしてください。', true);
+                return;
+            }
+
+            if (confirm("この予想データを削除しますか？")) {
+                votes = votes.filter(v => v.id !== id);
+                saveDataLocally();
+                renderVotesList();
+                showStatus('投票データを削除しました。');
+
+                // 削除情報をリアルタイム共有
+                broadcastData('DELETE_VOTE', { voteId: id });
+            }
+        }
+
+        function calculateResults() {
+            const selectedResults = [];
+            const checkSet = new Set();
+
+            for (let i = 0; i < 7; i++) {
+                const val = document.getElementById(`actual-rank-${i}`).value;
+                if (!val) {
+                    showStatus(`${i + 1}位の選手が選択されていません。`, true);
+                    return;
+                }
+                if (checkSet.has(val)) {
+                    showStatus(`選手「${val}」が重複して選択されています。`, true);
+                    return;
+                }
+                checkSet.add(val);
+                selectedResults.push(val);
+            }
+
+            actualResults = selectedResults;
+            saveDataLocally();
+
+            // リアルタイムブロードキャスト
+            broadcastData('UPDATE_ACTUAL');
+
+            renderLeaderboard();
+            showStatus('確定結果をセットして集計を完了しました！');
+        }
+
+        function renderLeaderboard() {
+            const container = document.getElementById('leaderboard-container');
+
+            if (actualResults.some(r => !r)) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-400 text-sm">
+                        結果がまだ完全に設定されていません。
+                    </div>
+                `;
+                return;
+            }
+
+            if (votes.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-400 text-sm">
+                        予想投票がまだありません。
+                    </div>
+                `;
+                return;
+            }
+
+            // 各投票のスコア計算
+            const scoredVotes = votes.map(vote => {
+                let exactMatches = 0; // 完全一致数
+                const matchDetails = vote.prediction.map((p, idx) => {
+                    const isMatch = p === actualResults[idx];
+                    if (isMatch) exactMatches++;
+                    return { player: p, isMatch };
+                });
+
+                return {
+                    ...vote,
+                    exactMatches,
+                    isPerfect: exactMatches === 7,
+                    matchDetails
+                };
+            });
+
+            // 的中数の多い順にソート
+            scoredVotes.sort((a, b) => b.exactMatches - a.exactMatches);
+
+            container.innerHTML = `
+                <!-- 確定順位まとめ -->
+                <div class="bg-golf-900 text-white p-4 rounded-xl mb-6 shadow-inner">
+                    <h3 class="text-xs font-bold text-golf-100 uppercase tracking-wider mb-2"><i class="fa-solid fa-circle-check text-golf-gold mr-1"></i>確定順位</h3>
+                    <div class="grid grid-cols-7 gap-1 text-center text-xs">
+                        ${actualResults.map((p, idx) => `
+                            <div class="bg-golf-800 p-1.5 rounded-lg border border-golf-700">
+                                <span class="text-[10px] text-golf-gold block font-bold">${idx+1}位</span>
+                                <span class="font-semibold text-white text-[11px] sm:text-xs truncate block">${escapeHtml(p)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- ランキングカード一覧 -->
+                <div class="space-y-3">
+                    ${scoredVotes.map((sv, idx) => {
+                        let rankBadge = `<span class="font-bold text-gray-500 w-6 text-center">${idx + 1}</span>`;
+                        let cardBg = "bg-white border-gray-200";
+
+                        if (sv.isPerfect) {
+                            cardBg = "bg-amber-50 border-amber-300 ring-2 ring-amber-400";
+                            rankBadge = `<span class="bg-amber-400 text-amber-950 font-extrabold text-xs px-2 py-1 rounded-md shadow">全的中!</span>`;
+                        } else if (idx === 0) {
+                            rankBadge = `<span class="bg-golf-gold text-white font-extrabold text-xs px-2 py-1 rounded-md shadow">1位</span>`;
+                        }
+
+                        return `
+                            <div class="rounded-xl p-4 border shadow-sm ${cardBg} transition">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="flex items-center space-x-3">
+                                        ${rankBadge}
+                                        <span class="font-bold text-gray-900 text-base">${escapeHtml(sv.voterName)}</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-xs text-gray-500">的中数:</span>
+                                        <span class="text-lg font-black text-golf-700 ml-1">${sv.exactMatches}</span>
+                                        <span class="text-xs font-bold text-gray-600">/ 7</span>
+                                    </div>
+                                </div>
+
+                                <!-- 予想詳細（的中箇所をハイライト） -->
+                                <div class="grid grid-cols-7 gap-1 text-center text-xs mt-3">
+                                    ${sv.matchDetails.map((detail, pIdx) => `
+                                        <div class="${detail.isMatch ? 'bg-golf-500 text-white ring-2 ring-golf-600 font-bold' : 'bg-gray-100 text-gray-500 opacity-80'} p-1.5 rounded-lg flex flex-col items-center justify-between transition">
+                                            <span class="text-[9px] ${detail.isMatch ? 'text-golf-100' : 'text-gray-400'}">${pIdx+1}位</span>
+                                            <span class="text-[11px] sm:text-xs truncate w-full">${escapeHtml(detail.player)}</span>
+                                            <i class="fa-solid ${detail.isMatch ? 'fa-check text-[10px] mt-0.5' : 'fa-xmark text-[9px] mt-0.5 opacity-30'}"></i>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        /* ---------------------------------------------------
+           データ管理・エクスポート (DATA EXPORT & CLEAR)
+        --------------------------------------------------- */
+        function exportVotesData() {
+            if (votes.length === 0) {
+                showStatus('出力できる投票データがありません。', true);
+                return;
+            }
+
+            let text = "【ゴルフコンペ 7人順位予想 投票結果】\n";
+            text += `出力日時: ${new Date().toLocaleString('ja-JP')}\n`;
+            text += `対象選手: ${players.join(', ')}\n`;
+            text += "-----------------------------------\n";
+
+            votes.forEach((v, idx) => {
+                text += `${idx + 1}. ${v.voterName}\n`;
+                text += `   ${v.prediction.map((p, i) => `${i + 1}位:${p}`).join(' / ')}\n`;
+            });
+
+            document.getElementById('export-textarea').value = text;
+            document.getElementById('modal-export').classList.remove('hidden');
+        }
+
+        function closeExportModal() {
+            document.getElementById('modal-export').classList.add('hidden');
+        }
+
+        function copyExportText() {
+            const textarea = document.getElementById('export-textarea');
+            textarea.select();
+            document.execCommand('copy');
+            showStatus('テキストをクリップボードにコピーしました！');
+            closeExportModal();
+        }
+
+        function clearAllVotes() {
+            if (!isAdmin) {
+                showStatus('この操作を行うには管理者権限が必要です。', true);
+                return;
+            }
+
+            if (confirm("本当に全端末の全ての投票データを削除しますか？この操作は取り消せません。")) {
+                votes = [];
+                saveDataLocally();
+                renderVotesList();
+                renderLeaderboard();
+                showStatus('全ての投票データをクリアしました。');
+
+                broadcastData('CLEAR_ALL_VOTES');
+            }
+        }
+
+        // HTMLエスケープヘルパー
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
