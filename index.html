@@ -1,4 +1,4 @@
-禎郎<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -313,6 +313,30 @@
         };
 
         /* ---------------------------------------------------
+           幹事・確定結果入力機能 (ADMIN RESULT INPUTS)
+        --------------------------------------------------- */
+        function renderActualResultInputs() {
+            const container = document.getElementById('actual-results-inputs');
+            if (!container) return;
+
+            container.innerHTML = Array.from({ length: 7 }).map((_, idx) => `
+                <div class="flex items-center space-x-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                    <span class="w-10 text-xs font-bold text-golf-800 bg-golf-100 px-2 py-1 rounded-md text-center">${idx + 1}位</span>
+                    <select id="actual-rank-${idx}" class="flex-1 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-golf-500 focus:outline-none">
+                        <option value="">-- 選手を選択 --</option>
+                        ${players.map(p => `
+                            <option value="${escapeHtml(p)}" ${actualResults[idx] === p ? 'selected' : ''}>${escapeHtml(p)}</option>
+                        `).join('')}
+                    </select>
+                </div>
+            `).join('');
+        }
+
+        function updateAdminUI() {
+            // 管理者モードに応じた表示切替（必要に応じて展開）
+        }
+
+        /* ---------------------------------------------------
            リアルタイム自動同期エンジン (ntfy.sh PubSub)
         --------------------------------------------------- */
         function initRealtimeSync() {
@@ -510,19 +534,6 @@
         function saveData() {
             saveDataLocally();
             broadcastData('DATA_UPDATED');
-        }
-
-            const savedActual = localStorage.getItem('golf_app_actual');
-            if (savedActual) {
-                actualResults = JSON.parse(savedActual);
-            }
-        }
-
-        // 保存処理
-        function saveData() {
-            localStorage.setItem('golf_app_players', JSON.stringify(players));
-            localStorage.setItem('golf_app_votes', JSON.stringify(votes));
-            localStorage.setItem('golf_app_actual', JSON.stringify(actualResults));
         }
 
         // タブ切り替え
